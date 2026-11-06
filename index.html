@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PixelResize Pro — অ্যাডভান্সড ইমেজ এডিটর ও রিসাইজার</title>
+  
+  <!-- Cropper.js for Advanced Cropping -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+  <!-- JSZip for Batch Download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- jsPDF for Image to PDF Conversion -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- App Header & Navigation Bar -->
+  <header class="app-header">
+    <div class="logo">Pixel<span>Resize</span> <span class="badge-pro">PRO</span></div>
+    <div class="header-actions">
+      <button id="themeToggle" class="icon-btn" title="থিম পরিবর্তন">🌙</button>
+    </div>
+  </header>
+
+  <main class="main-layout">
+    
+    <!-- Upload Drop Zone -->
+    <section class="card upload-card" id="dropCard">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">📁</div>
+        <h3>ইমেজ ড্র্যাগ & ড্রপ করুন অথবা ব্রাউজ করুন</h3>
+        <p>একসাথে একাধিক ছবি নির্বাচন করে ব্যাচ প্রসেসিং করতে পারেন (JPG, PNG, WebP)</p>
+        <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      </div>
+    </section>
+
+    <!-- Editor Workspace (Hidden until file selected) -->
+    <section class="editor-workspace hidden" id="workspace">
+      
+      <!-- Controls Sidebar (Left Column) -->
+      <aside class="sidebar">
+        
+        <!-- Batch Files Selector (Shows when multiple files selected) -->
+        <div class="card batch-card hidden" id="batchSection">
+          <h3>📦 ব্যাচ ফাইল লিস্ট (<span id="batchCount">0</span>)</h3>
+          <ul class="file-list" id="fileList"></ul>
+          <button id="batchProcessBtn" class="btn primary-btn full-w">⚡ সবগুলো ব্যাচ ডাউনলোড (ZIP)</button>
+        </div>
+
+        <!-- Preset Sizes -->
+        <div class="card">
+          <h3>📏 প্রিসেট সাইজ</h3>
+          <select id="presetSelect">
+            <option value="custom">কাস্টম সাইজ (Custom)</option>
+            <option value="fb_cover">Facebook Cover (820 x 312)</option>
+            <option value="fb_post">Facebook Post (1200 x 630)</option>
+            <option value="ig_post">Instagram Post (1080 x 1080)</option>
+            <option value="yt_thumb">YouTube Thumbnail (1280 x 720)</option>
+            <option value="email">Email Attachment (600 x 400)</option>
+          </select>
+        </div>
+
+        <!-- Resize & Dimensions -->
+        <div class="card">
+          <h3>📐 ডাইমেনশন ও মোড</h3>
+          <div class="radio-group">
+            <label><input type="radio" name="mode" value="px" checked> পিক্সেলে (px)</label>
+            <label><input type="radio" name="mode" value="pct"> পার্সেন্টে (%)</label>
+          </div>
+
+          <div class="input-grid">
+            <div class="field">
+              <label>প্রস্থ (<span class="unitLabel">px</span>)</label>
+              <input type="number" id="widthIn" min="1">
+            </div>
+            <div class="field">
+              <label>উচ্চতা (<span class="unitLabel">px</span>)</label>
+              <input type="number" id="heightIn" min="1">
+            </div>
+          </div>
+
+          <label class="checkbox-label" style="margin-top: 10px;">
+            <input type="checkbox" id="aspectLock" checked> অ্যাসপেক্ট রেশিও ঠিক রাখুন
+          </label>
+        </div>
+
+        <!-- Target File Size Compression -->
+        <div class="card">
+          <h3>🎯 টার্গেট ফাইল সাইজ (Compression)</h3>
+          <div class="field">
+            <label>সর্বোচ্চ ফাইল সাইজ (KB)</label>
+            <input type="number" id="targetKb" placeholder="যেমন: 500 (ঐচ্ছিক)">
+          </div>
+        </div>
+
+        <!-- Crop & Transform Tools -->
+        <div class="card">
+          <h3>🛠️ এডিটিং ও ট্রান্সফর্ম</h3>
+          <div class="btn-group">
+            <button id="cropToggleBtn" class="btn ghost-btn">✂️ ক্রপ মোড</button>
+            <button id="rotateBtn" class="btn ghost-btn">🔄 90° ঘোরান</button>
+            <button id="flipHBtn" class="btn ghost-btn">↔️ ফ্লিপ H</button>
+            <button id="flipVBtn" class="btn ghost-btn">↕️ ফ্লিপ V</button>
+          </div>
+        </div>
+
+        <!-- Color Filters -->
+        <div class="card">
+          <h3>🎨 কালার ফিল্টার</h3>
+          
+          <div class="filter-field">
+            <label>ব্রাইটনেস (Brightness): <span id="vBrightness">100%</span></label>
+            <input type="range" id="fBrightness" min="0" max="200" value="100">
+          </div>
+          
+          <div class="filter-field">
+            <label>কনট্রাস্ট (Contrast): <span id="vContrast">100%</span></label>
+            <input type="range" id="fContrast" min="0" max="200" value="100">
+          </div>
+
+          <div class="filter-field">
+            <label>স্যাচুরেশন (Saturation): <span id="vSaturation">100%</span></label>
+            <input type="range" id="fSaturation" min="0" max="200" value="100">
+          </div>
+
+          <div class="filter-field">
+            <label>গ্রেসকেল (Grayscale): <span id="vGrayscale">0%</span></label>
+            <input type="range" id="fGrayscale" min="0" max="100" value="0">
+          </div>
+
+          <div class="filter-field">
+            <label>সেপিয়া (Sepia): <span id="vSepia">0%</span></label>
+            <input type="range" id="fSepia" min="0" max="100" value="0">
+          </div>
+
+          <button id="resetFilters" class="btn link-btn">↺ ফিল্টার রিসেট</button>
+        </div>
+
+        <!-- Export Settings -->
+        <div class="card">
+          <h3>💾 আউটপুট সেটআপ</h3>
+          <div class="field">
+            <label>ফরম্যাট</label>
+            <select id="fmtSelect">
+              <option value="auto">অরিজিনাল ফরম্যাট</option>
+              <option value="image/jpeg">JPEG (.jpg)</option>
+              <option value="image/png">PNG (.png)</option>
+              <option value="image/webp">WebP (.webp)</option>
+            </select>
+          </div>
+          <div class="field" id="qualityWrapper">
+            <label>কোয়ালিটি: <span id="qualityVal">85%</span></label>
+            <input type="range" id="qualityRange" min="10" max="100" value="85">
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- Main Canvas & Interactive Preview (Right Column) -->
+      <main class="preview-area">
+        <div class="card canvas-card">
+          <div class="canvas-header">
+            <h3>🖼️ লাইভ প্রিভিউ</h3>
+            <span class="zoom-hint">💡 মাউস হুইল দিয়ে জুম ও ড্র্যাগ করে প্যান করুন</span>
+          </div>
+
+          <!-- Interactive Viewport -->
+          <div class="viewport-container" id="viewport">
+            <div class="zoom-wrapper" id="zoomWrapper">
+              <img id="mainImage" alt="Preview Image">
+            </div>
+          </div>
+
+          <!-- Live Image Information Bar -->
+          <div class="stats-bar">
+            <div class="stat-item">
+              <span>মূল সাইজ:</span>
+              <strong id="statOrig">0 × 0 | 0 KB</strong>
+            </div>
+            <div class="stat-item">
+              <span>নতুন সাইজ:</span>
+              <strong id="statNew">0 × 0 | 0 KB</strong>
+            </div>
+            <div class="stat-item">
+              <span>পরিবর্তন:</span>
+              <span id="statDiff" class="badge">—</span>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="actions-row">
+            <button id="downloadBtn" class="btn primary-btn">⬇️ ডাউনলোড ইমেজ</button>
+            <button id="newBtn" class="btn ghost-btn">🔄 নতুন ছবি আপলোড</button>
+            <button id="batchPdfBtn" class="btn ghost-btn full-w" style="margin-top: 8px;">📑 সব ছবি একসাথে PDF করুন</button>
+            
+          </div>
+        </div>
+      </main>
+
+    </section>
+  </main>
+
+  <!-- External JS Dependencies -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
